@@ -1,41 +1,44 @@
 const express = require('express');
-const app = express();
-const port = process.env.PORT || 3000;
-const path = require('path');
 const nodemailer = require('nodemailer');
 
-// Tạo transporter dùng thông tin từ Mailtrap
-const transporter = nodemailer.createTransport({
-  host: process.env.MT_HOST,
-  port: process.env.MT_PORT,
-  auth: {
-    user: process.env.MT_USER,
-    pass: process.env.MT_PASS
+const app = express();
+const port = process.env.PORT || 3000;
+
+// Middleware parse JSON body
+app.use(express.json());
+
+// Route gửi mail
+app.post('/send-email', async (req, res) => {
+  const { to, subject, text } = req.body;
+
+  if (!to || !subject || !text) {
+    return res.status(400).json({ message: 'Thiếu to, subject hoặc text' });
+  }
+
+  // Cấu hình transporter dùng biến môi trường từ Mailtrap
+  let transporter = nodemailer.createTransport({
+    host: process.env.MT_HOST,
+    port: process.env.MT_PORT,
+    auth: {
+      user: process.env.MT_USER,
+      pass: process.env.MT_PASS,
+    },
+  });
+
+  try {
+    let info = await transporter.sendMail({
+      from: '"Vercel Mail" <noreply@example.com>',
+      to,
+      subject,
+      text,
+    });
+
+    res.json({ message: 'Gửi mail thành công', info });
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi gửi mail', error: error.message });
   }
 });
 
-// Gửi mail mỗi 10 giây
-setInterval(() => {
-  const mailOptions = {
-    from: '"Render Worker" <noreply@example.com>',
-    to: 'ng.thanhthao0207e@gmail.com',
-    subject: 'Mailtrap Test Email',
-    text: 'Chào em, đây là email test từ Background Worker trên Render!'
-  };
-
-  transporter.sendMail(mailOptions, (err, info) => {
-    if (err) {
-      console.error('Lỗi khi gửi mail:', err);
-    } else {
-      console.log('Đã gửi email:', info.response);
-    }
-  });
-}, 10000);
-
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'index.html'));
-});
-
 app.listen(port, () => {
-  console.log(`Server is running on port ${port}`);
+  console.log(`Server chạy port ${port}`);
 });
